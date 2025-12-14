@@ -85,7 +85,6 @@ class Server:
             return Response(
                 deanonymized_response.to_json(), mimetype="application/json"
             )
-
         @self.app.route("/genz", methods=["POST"])  
         def genz() -> Response:
             """Apply the Gen-Z anonymizer to the provided entities."""
@@ -102,35 +101,28 @@ class Server:
             analyzer_results = AppEntitiesConvertor.analyzer_results_from_json(
                 analyzer_results_json
             )
-
             # Build operators config: for every entity_type, use the 'genz' operator
             entity_types = {result.entity_type for result in analyzer_results}
             operators = {
                 entity_type: OperatorConfig("genz", {})
                 for entity_type in entity_types
             }
-
             genz_result = self.anonymizer.anonymize(
                 text=text,
                 analyzer_results=analyzer_results,
                 operators=operators,
             )
-
-            return Response(genz_result.to_json(), mimetype="application/json")
-        
+            return Response(genz_result.to_json(), mimetype="application/json")      
         @self.app.errorhandler(HTTPException)
         def http_exception(e):
             return jsonify(error=e.description), e.code
-
         @self.app.errorhandler(Exception)
         def server_error(e):
             self.logger.error(f"A fatal error occurred during execution: {e}")
             return jsonify(error="Internal server error"), 500
-
 def create_app(): # noqa
     server = Server()
     return server.app
-
 if __name__ == "__main__":
     app = create_app()
     port = int(os.environ.get("PORT", DEFAULT_PORT))
