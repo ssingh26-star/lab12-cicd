@@ -7,7 +7,7 @@ from pathlib import Path
 
 from flask import Flask, Response, jsonify, request
 from presidio_anonymizer import AnonymizerEngine, DeanonymizeEngine
-from presidio_anonymizer.entities import InvalidParamError
+from presidio_anonymizer.entities import InvalidParamError, OperatorConfig
 from presidio_anonymizer.services.app_entities_convertor import AppEntitiesConvertor
 from werkzeug.exceptions import BadRequest, HTTPException
 
@@ -86,37 +86,38 @@ class Server:
                 deanonymized_response.to_json(), mimetype="application/json"
             )
 
-        @self.app.route("/anonymizers", methods=["GET"])
-        def anonymizers():
-            """Return a list of supported anonymizers."""
-            return jsonify(self.anonymizer.get_anonymizers())
+        @self.app.route("/genz", methods=["POST"])  
+        def genz() -> Response:
+            """Apply the Gen-Z anonymizer to the provided entities."""
+            content = request.get_json()
+            if not content:
+                raise BadRequest("Invalid request json")
 
-        @self.app.route("/deanonymizers", methods=["GET"])
-        def deanonymizers():
-            """Return a list of supported deanonymizers."""
-            return jsonify(self.deanonymize.get_deanonymizers())
+            text = content.get("text", "")
+            analyzer_results_json = content.get("analyzer_results")
+            if analyzer_results_json is None:
+                raise BadRequest("Missing 'analyzer_results' in request body")
 
-        @self.app.route("/genz-preview", methods=["GET"])
-        def genz_preview():
-            """Return an example Gen-Z anonymization output."""
-            example_text = "Call Emily at 577-988-1234"
-            example_output = "Call GOAT at vibe check"
+            # Convert JSON to RecognizerResult objects
+            analyzer_results = AppEntitiesConvertor.analyzer_results_from_json(
+                analyzer_results_json
+            )
 
-            response_body = {
-                "example": example_text,
-                "example_output": example_output,
-                "description": "Example output of the genz anonymizer.",
+            # Build operators config: for every entity_type, use the 'genz' operator
+            entity_types = {result.entity_type for result in analyzer_results}
+            operators = {
+                entity_type: OperatorConfig("genz", {})
+                for entity_type in entity_types
             }
 
-            return jsonify(response_body)
-
-        @self.app.errorhandler(InvalidParamError)
-        def invalid_param(err):
-            self.logger.warning(
-                f"Request failed with parameter validation error: {err.err_msg}"
+            genz_result = self.anonymizer.anonymize(
+                text=text,
+                analyzer_results=analyzer_results,
+                operators=operators,
             )
-            return jsonify(error=err.err_msg), 422
 
+            return Response(genz_result.to_json(), mimetype="application/json")
+        
         @self.app.errorhandler(HTTPException)
         def http_exception(e):
             return jsonify(error=e.description), e.code
