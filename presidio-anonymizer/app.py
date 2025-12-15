@@ -3,6 +3,7 @@ import logging
 import os
 from logging.config import fileConfig
 from pathlib import Path
+
 from flask import Flask, Response, jsonify, request
 from presidio_anonymizer import AnonymizerEngine, DeanonymizeEngine
 from presidio_anonymizer.entities import InvalidParamError, OperatorConfig
@@ -89,7 +90,7 @@ class Server:
                 deanonymized_response.to_json(), mimetype="application/json"
             )
 
-        @self.app.route("/genz", methods=["GET"])
+        @self.app.route("/genz", methods=["POST"])  # Changed from GET to POST
         def genz() -> Response:
             content = request.get_json()
             if not content:
