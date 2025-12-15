@@ -48,3 +48,12 @@ def __get_multipart_form_data(file):
             "image": (file.name, file, "multipart/form-data"),
         }
     return multipart_form_data
+
+def call_genz_anonymizer(data):
+    """Helper to call the /genz endpoint."""
+    response = requests.post(
+        f"{ANONYMIZER_BASE_URL}/genz",
+        data=data,
+        headers=DEFAULT_HEADERS,
+    )
+    return response.status_code, response.content

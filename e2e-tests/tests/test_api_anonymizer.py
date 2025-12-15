@@ -3,7 +3,7 @@ import json
 import pytest
 
 from common.assertions import equal_json_strings
-from common.methods import anonymize, anonymizers, deanonymize
+from common.methods import anonymize, anonymizers, deanonymize, call_genz_anonymizer
 
 
 @pytest.mark.api
@@ -401,3 +401,45 @@ def test_overlapping_keep_both():
 
     assert response_status == 200
     assert equal_json_strings(expected_response, response_content)
+
+@pytest.mark.api
+def test_given_anonymize_called_with_genz_then_expected_valid_response_returned():
+    request_body = """
+    {
+        "text": "Please contact Emily Carter at 734-555-9284 if you have questions about the workshop registration.",
+        "analyzer_results": [
+            {
+                "start": 15,
+                "end": 27,
+                "score": 0.3,
+                "entity_type": "PERSON"
+            },
+            {
+                "start": 31,
+                "end": 43,
+                "score": 0.95,
+                "entity_type": "PHONE_NUMBER"
+            }
+        ]
+    }
+    """
+
+    status_code, response_content = call_genz_anonymizer(request_body)
+
+    # Because the Gen-Z output is random, we only check status + structure.
+    assert status_code == 200
+
+    response = json.loads(response_content)
+
+    assert "text" in response
+    assert "items" in response
+    assert isinstance(response["items"], list)
+    assert len(response["items"]) == 2
+
+    # All items should be produced by the 'genz' operator
+    operators = {item["operator"] for item in response["items"]}
+    assert operators == {"genz"}
+
+    # Entity types should match what we passed in
+    entity_types = {item["entity_type"] for item in response["items"]}
+    assert entity_types == {"PERSON", "PHONE_NUMBER"}
