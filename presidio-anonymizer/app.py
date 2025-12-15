@@ -85,7 +85,8 @@ class Server:
             return Response(
                 deanonymized_response.to_json(), mimetype="application/json"
             )
-        @self.app.route("/genz", methods=["POST"])  
+        
+        @self.app.route("/genz", methods=["POST"])
         def genz() -> Response:
             """Apply the Gen-Z anonymizer to the provided entities."""
             content = request.get_json()
@@ -112,7 +113,37 @@ class Server:
                 analyzer_results=analyzer_results,
                 operators=operators,
             )
-            return Response(genz_result.to_json(), mimetype="application/json")      
+
+            return Response(genz_result.to_json(), mimetype="application/json")
+
+
+        @self.app.route("/anonymizers", methods=["GET"])
+        def anonymizers():
+            """Return a list of supported anonymizers."""
+            return jsonify(self.anonymizer.get_anonymizers())
+        @self.app.route("/deanonymizers", methods=["GET"])
+        def deanonymizers():
+            """Return a list of supported deanonymizers."""
+            return jsonify(self.deanonymize.get_deanonymizers())
+        
+        @self.app.route("/genz-preview", methods=["GET"])
+        def genz_preview():
+            """Return an example Gen-Z anonymization output."""
+            example_text = "Call Emily at 577-988-1234"
+            example_output = "Call GOAT at vibe check"
+
+            response_body = {
+                "example": example_text,
+                "example_output": example_output,
+                "description": "Example output of the genz anonymizer.",
+            }
+            return jsonify(response_body)
+        @self.app.errorhandler(InvalidParamError)
+        def invalid_param(err):
+            self.logger.warning(
+                f"Request failed with parameter validation error: {err.err_msg}"
+            )
+            return jsonify(error=err.err_msg), 422
         @self.app.errorhandler(HTTPException)
         def http_exception(e):
             return jsonify(error=e.description), e.code
